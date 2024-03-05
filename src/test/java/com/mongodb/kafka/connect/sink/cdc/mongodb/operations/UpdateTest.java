@@ -52,7 +52,8 @@ class UpdateTest {
               + "      updatedFields: {"
               + "         email: 'alice@10gen.com'"
               + "      },"
-              + "      removedFields: ['phoneNumber']"
+              + "      removedFields: ['phoneNumber'],"
+              + "      truncatedArrays: [{field: 'backpack.books', newSize: 3},{field: 'backpack.lunch', newSize: 2}],"
               + "   },"
               + "   fullDocument: {"
               + "      _id: ObjectId(\"58a4eb4a30c75625e00d2820\"),"
@@ -93,7 +94,11 @@ class UpdateTest {
         "filter expected to be of type BsonDocument");
     BsonDocument update =
         BsonDocument.parse(
-            "{'$set': {'email': 'alice@10gen.com'}," + "'$unset': {'phoneNumber': ''}}}");
+            "{'$set':"
+                + " {'email': 'alice@10gen.com'},"
+                + "'$unset': {'phoneNumber': ''},"
+                + "'$push': {'backpack.books': {'$each': [], '$slice': 3}, 'backpack.lunch': {'$each': [], '$slice': 2}}"
+                + "}");
     assertEquals(CHANGE_EVENT.getDocument("documentKey"), writeModel.getFilter());
     assertEquals(update, writeModel.getUpdate());
   }

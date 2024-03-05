@@ -37,11 +37,15 @@ final class OperationHelper {
   private static final String UPDATE_DESCRIPTION = "updateDescription";
   private static final String UPDATED_FIELDS = "updatedFields";
   private static final String REMOVED_FIELDS = "removedFields";
+  private static final String TRUNCATED_ARRAYS = "truncatedArrays";
   private static final Set<String> UPDATE_DESCRIPTION_FIELDS =
-      new HashSet<>(asList(UPDATED_FIELDS, REMOVED_FIELDS));
+      new HashSet<>(asList(UPDATED_FIELDS, REMOVED_FIELDS, TRUNCATED_ARRAYS));
 
+  private static final String PUSH = "$push";
   private static final String SET = "$set";
   private static final String UNSET = "$unset";
+  private static final String FIELD = "field";
+  private static final String NEW_SIZE = "newSize";
   private static final BsonString EMPTY_STRING = new BsonString("");
 
   static BsonDocument getDocumentKey(final BsonDocument changeStreamDocument) {
@@ -128,6 +132,7 @@ final class OperationHelper {
     BsonDocument updatedFields = updateDescription.getDocument(UPDATED_FIELDS);
     BsonArray removedFields = updateDescription.getArray(REMOVED_FIELDS);
     BsonDocument unsetDocument = new BsonDocument();
+    BsonArray truncatedArrays = updateDescription.getArray(TRUNCATED_ARRAYS);
     for (final BsonValue removedField : removedFields) {
       if (!removedField.isString()) {
         throw new DataException(
@@ -141,6 +146,23 @@ final class OperationHelper {
     BsonDocument updateDocument = new BsonDocument(SET, updatedFields);
     if (!unsetDocument.isEmpty()) {
       updateDocument.put(UNSET, unsetDocument);
+    }
+
+    if (!truncatedArrays.isEmpty()) {
+      BsonDocument truncateOps = new BsonDocument();
+      for (final BsonValue value : truncatedArrays) {
+        BsonDocument doc = value.asDocument();
+        String field = doc.get(FIELD).asString().getValue();
+        BsonValue newSize = doc.get(NEW_SIZE).asInt32();
+
+        truncateOps.put(
+            field,
+            new BsonDocument()
+                .append("$each", new BsonArray())
+                .append("$slice", newSize)
+                .toBsonDocument());
+      }
+      updateDocument.put(PUSH, truncateOps);
     }
 
     return updateDocument;
